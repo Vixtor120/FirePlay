@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { searchGames, getPopularGames } from '@/lib/requests';
 import GameCard from '@/components/GameCard';
 import { Game } from '@/types/game.types';
 
-export default function SearchPage() {
+// Extract the component that uses useSearchParams
+function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   
@@ -215,5 +216,29 @@ export default function SearchPage() {
       {/* Toast para mensajes de feedback */}
       <div id="toast" className="hidden fixed bottom-4 right-4 bg-indigo-600 text-white py-2 px-4 rounded shadow-lg z-50"></div>
     </div>
+  );
+}
+
+// Main component with Suspense
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-8">
+        <div className="relative rounded-xl overflow-hidden bg-gradient-to-r from-violet-900/80 to-indigo-900/80 h-40"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+            <div key={item} className="animate-pulse bg-slate-800 rounded-lg overflow-hidden shadow-md border border-slate-700">
+              <div className="h-48 bg-slate-700"></div>
+              <div className="p-4">
+                <div className="h-4 bg-slate-700 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-slate-700 rounded w-1/2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    }>
+      <SearchContent />
+    </Suspense>
   );
 }
