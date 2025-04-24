@@ -12,14 +12,36 @@ interface CartItem {
   name: string;
   background_image: string;
   price: number;
+  genres: Genre[];
+  rating: number;
+  released: string;
+  platforms: {
+    platform: {
+      id: number;
+      name: string;
+    }
+  }[];
   quantity: number;
-  genres?: Genre[]; // Add genres property that's optional
-  originalPrice?: number; // Add optional originalPrice for discounts
 }
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (game: Pick<Game, 'id' | 'slug' | 'name' | 'background_image' | 'price' | 'genres'>, quantity?: number) => void;
+  addToCart: (game: {
+    id: number;
+    slug: string;
+    name: string;
+    background_image: string;
+    price: number;
+    genres: Genre[];
+    released: string;
+    rating: number;
+    platforms: {
+      platform: {
+        id: number;
+        name: string;
+      }
+    }[];
+  }, quantity?: number) => void;
   removeFromCart: (gameId: number) => void;
   updateQuantity: (gameId: number, quantity: number) => void;
   clearCart: () => void;
@@ -30,7 +52,7 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +76,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             name: data.gameName,
             background_image: data.gameImage,
             price: data.gamePrice,
+            genres: data.genres,
+            rating: data.rating,
+            released: data.released,
+            platforms: data.platforms,
             quantity: data.quantity
           });
         });
@@ -110,6 +136,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             gameName: item.name,
             gameImage: item.background_image,
             gamePrice: item.price,
+            genres: item.genres,
+            rating: item.rating,
+            released: item.released,
+            platforms: item.platforms,
             quantity: item.quantity,
             updatedAt: new Date().toISOString()
           })
@@ -132,47 +162,53 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [cartItems, isLoading, user, syncCartWithFirestore]);
 
-  const addToCart = useCallback((game: Pick<Game, 'id' | 'slug' | 'name' | 'background_image' | 'price' | 'genres'>, quantity = 1) => {
-    setCartItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex(item => item.id === game.id);
-      
-      if (existingItemIndex > -1) {
-        const updatedItems = [...prevItems];
-        updatedItems[existingItemIndex].quantity += quantity;
-        return updatedItems;
-      } else {
-        return [
-          ...prevItems,
-          {
-            id: game.id,
-            slug: game.slug,
-            name: game.name,
-            background_image: game.background_image,
-            price: game.price ?? 0,
-            quantity,
-            genres: game.genres
-          }
-        ];
+  const updateQuantity = useCallback((id: number, quantity: number) => {
+    const validQuantity = Math.max(1, Math.min(10, quantity));
+    
+    const newCartItems = cartItems.map(item => {
+      if (item.id === id) {
+        return { ...item, quantity: validQuantity };
       }
+      return item;
     });
-  }, []);
+    
+    setCartItems(newCartItems);
+    localStorage.setItem('cartItems', JSON.stringify(newCartItems));
+  }, [cartItems]);
+
+  const addToCart = (game: {
+    id: number;
+    slug: string;
+    name: string;
+    background_image: string;
+    price: number;
+    genres: Genre[];
+    released: string;
+    rating: number;
+    platforms: {
+      platform: {
+        id: number;
+        name: string;
+      }
+    }[];
+  }, quantity = 1) => {
+    const validQuantity = Math.max(1, Math.min(10, quantity));
+    
+    const existingItem = cartItems.find(item => item.id === game.id);
+
+    if (existingItem) {
+      const newQuantity = Math.min(10, existingItem.quantity + validQuantity);
+      updateQuantity(game.id, newQuantity);
+    } else {
+      const newCart = [...cartItems, { ...game, quantity: validQuantity }];
+      setCartItems(newCart);
+      localStorage.setItem('cartItems', JSON.stringify(newCart));
+    }
+  };
 
   const removeFromCart = useCallback((gameId: number) => {
     setCartItems((prevItems) => prevItems.filter(item => item.id !== gameId));
   }, []);
-
-  const updateQuantity = useCallback((gameId: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(gameId);
-      return;
-    }
-
-    setCartItems((prevItems) => 
-      prevItems.map(item => 
-        item.id === gameId ? { ...item, quantity } : item
-      )
-    );
-  }, [removeFromCart]);
 
   const clearCart = useCallback(() => {
     setCartItems([]);

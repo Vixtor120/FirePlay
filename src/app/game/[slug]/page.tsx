@@ -3,12 +3,13 @@
 import { getGameDetails } from '../../../lib/requests';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/firebase';
 import { GameDetails } from '@/types/game.types';
+import FavoriteButton from '@/components/FavoriteButton';
 
 // Componente de carga para usar con Suspense
 function GameDetailsLoading() {
@@ -44,90 +45,109 @@ function GameDetailsLoading() {
 // Componente para mostrar los detalles del juego
 function GameDetailsContent({ game }: { game: GameDetails | null }) {
   const { user } = useAuth();
-  const { addToCart } = useCart();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isAddingFavorite, setIsAddingFavorite] = useState(false);
+  const { addToCart, cartItems } = useCart();
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const isMounted = useRef(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const localCacheKey = useRef(`fireplay_favorites_${user?.uid || 'guest'}`);
+
+  // Verificar si el juego ya está en el carrito
+  useEffect(() => {
+    if (!game) return;
+
+    const itemInCart = cartItems.find(item => item.id === game.id);
+    if (itemInCart) {
+      setAddedToCart(true);
+      setTimeout(() => {
+        if (isMounted.current) setAddedToCart(false);
+      }, 2000);
+    }
+  }, [game, cartItems]);
 
   useEffect(() => {
-    const checkIfFavorite = async () => {
-      if (!user || !game) return;
-
-      try {
-        const favoriteRef = doc(db, 'favorites', `${user.uid}_${game.id}`);
-        const favoriteSnap = await getDoc(favoriteRef);
-        setIsFavorite(favoriteSnap.exists());
-      } catch (error) {
-        console.error('Error checking favorite status:', error);
-      }
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
+  }, []);
 
-    checkIfFavorite();
-  }, [user, game]);
-
-  if (!game) {
-    return <div className="pt-28 text-center py-12 text-slate-300">No se pudo cargar la información del juego.</div>;
-  }
-
-  const handleToggleFavorite = async () => {
-    if (!user) {
-      alert('Debes iniciar sesión para guardar favoritos');
+  const handleAddToCart = () => {
+    // Verificar que game no sea null
+    if (!game) {
+      showToast('No se puede agregar al carrito: información del juego no disponible', 'error');
       return;
     }
 
-    setIsAddingFavorite(true);
+    const limitedQuantity = Math.min(10, quantity);
+    setQuantity(limitedQuantity);
 
-    try {
-      const documentId = `${user.uid}_${game.id}`;
-      const favoriteRef = doc(db, 'favorites', documentId);
-
-      if (isFavorite) {
-        await deleteDoc(favoriteRef);
-        setIsFavorite(false);
-      } else {
-        const favoriteData = {
-          userId: user.uid,
-          gameId: game.id,
-          gameName: game.name,
-          gameSlug: game.slug,
-          gameImage: game.background_image || '',
-          gameRating: game.rating || 0,
-          gamePrice: game.price || 0, // Use default value of 0 if undefined
-          addedAt: new Date().toISOString(),
-        };
-
-        await setDoc(favoriteRef, favoriteData);
-        setIsFavorite(true);
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      alert(`Error al ${isFavorite ? 'eliminar de' : 'añadir a'} favoritos`);
-    } finally {
-      setIsAddingFavorite(false);
-    }
-  };
-
-  const handleAddToCart = () => {
     setIsAddingToCart(true);
 
     try {
-      addToCart({ 
-        ...game,
-        price: game.price || 0 
-      }, quantity);  
-      
+      // Pass the game object directly since the structures now match
+      addToCart({
+        id: game.id,
+        slug: game.slug || '',
+        name: game.name || '',
+        background_image: game.background_image || '',
+        price: game.price || 0,
+        genres: game.genres || [],
+        released: game.released || '',
+        rating: game.rating || 0,
+        platforms: game.platforms || []
+      }, limitedQuantity);
+
       setAddedToCart(true);
-      setTimeout(() => setAddedToCart(false), 2000);
+      showToast(`${limitedQuantity} ${limitedQuantity === 1 ? 'copia' : 'copias'} de ${game.name} añadidas al carrito`, 'success');
+
+      setTimeout(() => {
+        if (isMounted.current) setAddedToCart(false);
+      }, 2000);
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('Error al añadir al carrito');
+      showToast('Error al añadir al carrito', 'error');
     } finally {
       setIsAddingToCart(false);
     }
   };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const toast = document.getElementById('toast');
+    if (toast) {
+      toast.textContent = message;
+
+      let bgColor = 'bg-indigo-600';
+      if (type === 'error') bgColor = 'bg-red-600';
+      if (type === 'success') bgColor = 'bg-green-600';
+
+      toast.className = `visible fixed bottom-4 right-4 ${bgColor} text-white py-2 px-4 rounded shadow-lg z-50`;
+      setTimeout(() => {
+        toast.className = 'hidden';
+      }, 3000);
+    }
+  };
+
+  // Agregar verificación de null en el JSX también
+  if (!game) {
+    return (
+      <div className="pt-20 container mx-auto">
+        <div className="bg-slate-800 p-8 rounded-xl text-center border border-slate-700">
+          <h2 className="text-xl font-semibold text-white">No se pudo cargar la información del juego</h2>
+          <p className="text-slate-300 mt-2">Por favor, inténtalo de nuevo más tarde</p>
+          <Link
+            href="/search"
+            className="mt-4 inline-block bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 transition-colors"
+          >
+            Volver a la tienda
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-20 container mx-auto">
@@ -161,65 +181,65 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
             </div>
           </div>
         </div>
-        
+
         {/* Información principal y descripciones */}
         <div className="md:col-span-2 flex flex-col">
           <h1 className="text-3xl lg:text-4xl font-bold mb-3 text-white">{game.name}</h1>
-          
+
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center bg-amber-600/20 text-amber-400 px-2.5 py-1 rounded-md">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1.5">
                 <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clipRule="evenodd" />
               </svg>
-              <span className="font-semibold">{game.rating.toFixed(1)}</span>
+              <span className="font-semibold">{game.rating ? game.rating.toFixed(1) : "N/A"}</span>
             </div>
             <div className="text-slate-400">
-              {new Date(game.released).toLocaleDateString('es-ES', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
+              {game.released ? new Date(game.released).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              }) : "Fecha no disponible"}
             </div>
           </div>
-          
+
           <div className="bg-slate-800/60 rounded-lg p-4 mb-4">
             <h2 className="text-lg font-medium mb-2 text-white">Acerca de este juego</h2>
             <div className="text-slate-300 leading-relaxed line-clamp-4 md:line-clamp-none">
               {game.description_raw}
             </div>
           </div>
-          
+
           <div className="mt-auto grid grid-cols-3 gap-2">
             <div className="col-span-3 md:col-span-1">
               <div className="bg-slate-800/60 p-3 rounded-lg h-full">
                 <h3 className="text-sm uppercase text-slate-400 mb-1">Desarrolladores</h3>
                 <div className="flex flex-wrap gap-1">
-                  {game.developers.map((dev) => (
+                  {game.developers && game.developers.length > 0 ? game.developers.map((dev) => (
                     <span key={dev.id} className="text-white text-sm">{dev.name}</span>
-                  ))}
+                  )) : <span className="text-white text-sm">Información no disponible</span>}
                 </div>
               </div>
             </div>
-            
+
             <div className="col-span-3 md:col-span-1">
               <div className="bg-slate-800/60 p-3 rounded-lg h-full">
                 <h3 className="text-sm uppercase text-slate-400 mb-1">Géneros</h3>
                 <div className="flex flex-wrap gap-1">
-                  {game.genres.map((genre) => (
+                  {game.genres && game.genres.length > 0 ? game.genres.map((genre) => (
                     <span key={genre.id} className="bg-violet-500/20 text-violet-300 text-xs px-2 py-0.5 rounded">
                       {genre.name}
                     </span>
-                  ))}
+                  )) : <span className="text-violet-300 text-xs">Géneros no disponibles</span>}
                 </div>
               </div>
             </div>
-            
+
             <div className="col-span-3 md:col-span-1">
               <div className="bg-slate-800/60 p-3 rounded-lg h-full">
                 <h3 className="text-sm uppercase text-slate-400 mb-1">Lanzamiento</h3>
                 <div className="text-white">
-                  {new Date(game.released).toLocaleDateString('es-ES', { 
-                    year: 'numeric', 
+                  {new Date(game.released).toLocaleDateString('es-ES', {
+                    year: 'numeric',
                     month: 'short'
                   })}
                 </div>
@@ -239,8 +259,8 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
               <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-slate-800 text-white">Capturas de pantalla</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {game.screenshots.map((screenshot) => (
-                  <button 
-                    key={screenshot.id} 
+                  <button
+                    key={screenshot.id}
                     className={`relative aspect-video rounded-lg overflow-hidden transition-all ${
                       selectedScreenshot === screenshot.image ? 'ring-2 ring-violet-500 scale-[1.02]' : ''
                     }`}
@@ -258,7 +278,7 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
               </div>
             </div>
           )}
-          
+
           {/* Vista previa de screenshot seleccionada */}
           {selectedScreenshot && (
             <div className="mb-8 relative rounded-xl overflow-hidden aspect-video">
@@ -269,7 +289,7 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
                 className="object-cover"
                 sizes="(max-width: 1200px) 100vw, 1200px"
               />
-              <button 
+              <button
                 onClick={() => setSelectedScreenshot(null)}
                 className="absolute top-4 right-4 bg-black/50 rounded-full p-2 text-white hover:bg-black/80 transition-colors"
                 aria-label="Cerrar vista previa"
@@ -280,7 +300,7 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
               </button>
             </div>
           )}
-          
+
           {/* Requisitos del sistema (demo) */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-slate-800 text-white">Requisitos del sistema</h2>
@@ -321,11 +341,11 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
                 En Stock
               </span>
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="quantity" className="block text-sm font-medium text-slate-300 mb-2">Cantidad</label>
               <div className="flex items-center">
-                <button 
+                <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-l-lg text-white"
                 >
@@ -337,25 +357,28 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
                   min="1"
                   max="10"
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, Math.min(10, Number(e.target.value))))}
+                  onChange={(e) => setQuantity(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
                   className="w-16 bg-slate-900 border-y border-slate-700 py-2 text-center text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <button 
+                <button
                   onClick={() => setQuantity(Math.min(10, quantity + 1))}
                   className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-r-lg text-white"
                 >
                   +
                 </button>
               </div>
+              {quantity >= 10 && (
+                <p className="text-xs text-amber-400 mt-1">Máximo 10 unidades por producto</p>
+              )}
             </div>
-            
+
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
                 className={`w-full py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors ${
-                  addedToCart 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                  addedToCart
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
                     : 'bg-violet-600 hover:bg-violet-700 text-white'
                 }`}
               >
@@ -383,41 +406,18 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
                   </span>
                 )}
               </button>
-              
-              <button 
-                onClick={handleToggleFavorite}
-                disabled={isAddingFavorite}
-                className="w-full py-3 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 flex items-center justify-center gap-2 transition-colors"
-              >
-                {isAddingFavorite ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-violet-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Procesando...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    {isFavorite ? 
-                      <span className="text-red-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1">
-                          <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
-                        </svg>
-                        Quitar de favoritos
-                      </span> : 
-                      <span className="text-slate-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                        </svg>
-                        Añadir a favoritos
-                      </span>
-                    }
-                  </span>
-                )}
-              </button>
+
+              <FavoriteButton
+                gameId={game.id}
+                gameName={game.name}
+                gameSlug={game.slug}
+                gameImage={game.background_image || ''}
+                gameRating={game.rating || 0}
+                gamePrice={game.price || 0}
+                className="w-full py-3 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700"
+              />
             </div>
-            
+
             {/* Información adicional de compra */}
             <div className="mt-6 space-y-3 text-sm text-slate-400">
               <div className="flex items-center gap-2">
@@ -445,7 +445,7 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
           </svg>
           Volver a la tienda
         </Link>
-        <button 
+        <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="flex items-center gap-2 text-slate-400 hover:text-violet-400 transition-colors"
         >
@@ -486,13 +486,13 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
         setLoading(false);
       }
     }
-    
+
     resolveSlug();
   }, [params]);
 
   useEffect(() => {
     if (!slugValue) return;
-    
+
     const loadGame = async () => {
       setLoading(true);
       try {

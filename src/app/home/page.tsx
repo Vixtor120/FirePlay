@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getPopularGames } from '../../lib/requests';
 import GameCard from '../../components/GameCard';
 import { Suspense } from 'react';
+import TrendingGameCard from '../../components/TrendingGameCard';
 
 // Componente de carga mientras se obtienen los juegos
 function GamesLoading() {
@@ -112,37 +113,71 @@ export default function Home() {
         </Suspense>
       </section>
 
-      {/* Categorías - Diseño moderno y simple */}
-      <section className="mb-12">
+      {/* Nueva sección de Trending Games con iconos */}
+      <section className="mb-12 overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-5">
           <h2 className="text-xl font-bold text-white flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-violet-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-violet-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
-            Categorías
+            Trending ahora
           </h2>
+          <Link href="/search?sort=popularity" className="flex items-center text-violet-400 hover:text-violet-300 text-sm font-medium transition-colors">
+            <span>Ver tendencias</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
         </div>
         
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            {name: 'Acción', icon: '🎯', color: 'bg-gradient-to-br from-rose-600/80 to-rose-900/80'},
-            {name: 'Aventura', icon: '🗺️', color: 'bg-gradient-to-br from-emerald-600/80 to-emerald-900/80'},
-            {name: 'RPG', icon: '⚔️', color: 'bg-gradient-to-br from-amber-600/80 to-amber-900/80'},
-            {name: 'Estrategia', icon: '🧩', color: 'bg-gradient-to-br from-blue-600/80 to-blue-900/80'},
-          ].map((category) => (
-            <Link 
-              href={`/search?category=${category.name}`}
-              key={category.name}
-              className="relative rounded-lg overflow-hidden group h-24 hover:scale-[1.02] transition-transform"
-            >
-              <div className={`absolute inset-0 ${category.color}`}></div>
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/50 to-transparent"></div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">{category.icon}</span>
-                <h3 className="text-white font-medium text-sm md:text-base">{category.name}</h3>
-              </div>
-            </Link>
-          ))}
+        {/* Grid de tarjetas de tendencia con iconos */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <TrendingGameCard 
+            title="Aventuras de Acción" 
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            }
+            genre="Acción" 
+            gradient="linear-gradient(135deg, rgba(225,29,72,0.7) 0%, rgba(153,27,78,0.85) 100%)"
+            accentColor="text-rose-300"
+          />
+          <div className="grid grid-cols-2 md:grid-cols-1 gap-4">
+            <TrendingGameCard 
+              title="Mundos Abiertos" 
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+              }
+              genre="Aventura" 
+              gradient="linear-gradient(135deg, rgba(16,185,129,0.7) 0%, rgba(5,150,105,0.85) 100%)"
+              accentColor="text-emerald-300"
+            />
+            <TrendingGameCard 
+              title="Estrategia" 
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" />
+                </svg>
+              }
+              genre="Estrategia" 
+              gradient="linear-gradient(135deg, rgba(37,99,235,0.7) 0%, rgba(29,78,216,0.85) 100%)"
+              accentColor="text-blue-300"
+            />
+          </div>
+          <TrendingGameCard 
+            title="Fantasía RPG" 
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            }
+            genre="RPG" 
+            gradient="linear-gradient(135deg, rgba(245,158,11,0.7) 0%, rgba(217,119,6,0.85) 100%)"
+            accentColor="text-amber-300"
+          />
         </div>
       </section>
 

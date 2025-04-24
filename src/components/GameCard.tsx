@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Game } from '../types/game.types';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -14,8 +14,11 @@ export default function GameCard({ game }: { game: Game }) {
   const { addToCart } = useCart();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingOperation, setPendingOperation] = useState(false); // Track background operations
   const [addedToCart, setAddedToCart] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const isMounted = useRef(true);
+  const operationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Verificar el estado de conectividad
   useEffect(() => {
@@ -35,6 +38,22 @@ export default function GameCard({ game }: { game: Game }) {
 
   // Verificar si el juego está en favoritos cuando se monta el componente
   useEffect(() => {
+    isMounted.current = true;
+    
+    // Primero verificamos en localStorage para una respuesta instantánea
+    try {
+      const userFavoritesKey = `fireplay_favorites_${user?.uid || 'guest'}`;
+      const cachedFavoritesJson = localStorage.getItem(userFavoritesKey);
+      if (cachedFavoritesJson && user) {
+        const cachedFavorites = JSON.parse(cachedFavoritesJson);
+        const isFav = cachedFavorites.data.some((fav: any) => fav.gameId === game.id);
+        setIsFavorite(isFav);
+      }
+    } catch (error) {
+      console.error('Error checking favorite in cache:', error);
+    }
+    
+    // Luego verificamos en Firebase para asegurar datos actualizados
     const checkIfFavorite = async () => {
       if (!user) {
         setIsFavorite(false);
@@ -44,14 +63,86 @@ export default function GameCard({ game }: { game: Game }) {
       try {
         const favoriteRef = doc(db, 'favorites', `${user.uid}_${game.id}`);
         const favoriteSnap = await getDoc(favoriteRef);
-        setIsFavorite(favoriteSnap.exists());
+        
+        if (isMounted.current) {
+          setIsFavorite(favoriteSnap.exists());
+        }
       } catch (error) {
         console.error('Error checking favorite status:', error);
       }
     };
 
-    checkIfFavorite();
+    // Solo consultamos Firebase si tenemos un usuario
+    if (user) {
+      checkIfFavorite();
+    }
+    
+    return () => {
+      isMounted.current = false;
+    };
   }, [game.id, user]);
+
+  // Actualizar el caché local cuando se cambia el estado de favorito
+  const updateLocalFavoritesCache = useCallback((isFav: boolean) => {
+    if (!user) return;
+    
+    try {
+      const userFavoritesKey = `fireplay_favorites_${user.uid}`;
+      const cachedFavoritesJson = localStorage.getItem(userFavoritesKey);
+      
+      if (cachedFavoritesJson) {
+        const cachedFavorites = JSON.parse(cachedFavoritesJson);
+        
+        if (isFav) {
+          // Añadir a favoritos en caché
+          const newFavorite = {
+            id: `${user.uid}_${game.id}`,
+            gameId: game.id,
+            gameName: game.name,
+            gameSlug: game.slug,
+            gameImage: game.background_image || '',
+            gameRating: game.rating || 0,
+            gamePrice: game.price || 0,
+            addedAt: new Date().toISOString(),
+          };
+          
+          // Verificar que no exista ya
+          const exists = cachedFavorites.data.some((fav: any) => fav.gameId === game.id);
+          
+          if (!exists) {
+            cachedFavorites.data.unshift(newFavorite);
+            cachedFavorites.timestamp = new Date().toISOString();
+            localStorage.setItem(userFavoritesKey, JSON.stringify(cachedFavorites));
+          }
+        } else {
+          // Eliminar de favoritos en caché
+          cachedFavorites.data = cachedFavorites.data.filter(
+            (fav: any) => fav.gameId !== game.id
+          );
+          cachedFavorites.timestamp = new Date().toISOString();
+          localStorage.setItem(userFavoritesKey, JSON.stringify(cachedFavorites));
+        }
+      } else if (isFav) {
+        // Si no existe caché, crear uno nuevo solo si estamos añadiendo
+        const newCache = {
+          data: [{
+            id: `${user.uid}_${game.id}`,
+            gameId: game.id,
+            gameName: game.name,
+            gameSlug: game.slug,
+            gameImage: game.background_image || '',
+            gameRating: game.rating || 0,
+            gamePrice: game.price || 0,
+            addedAt: new Date().toISOString(),
+          }],
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(userFavoritesKey, JSON.stringify(newCache));
+      }
+    } catch (error) {
+      console.error('Error updating favorites cache:', error);
+    }
+  }, [game, user]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -67,16 +158,43 @@ export default function GameCard({ game }: { game: Game }) {
       return;
     }
 
+    // Prevent multiple rapid clicks
+    if (pendingOperation) return;
+
+    // Optimistic UI update - update immediately for better UX
+    const previousState = isFavorite;
+    setIsFavorite(!previousState);
+    
+    // Actualizar caché local instantáneamente para mejorar UX
+    updateLocalFavoritesCache(!previousState);
+    
+    // Show minimal loading indication (just a small visual cue)
     setIsLoading(true);
+    setPendingOperation(true);
+    
+    // Clear any existing timeout
+    if (operationTimeoutRef.current) clearTimeout(operationTimeoutRef.current);
+    
+    // Set a timeout to hide loading indicator even if Firebase is slow
+    operationTimeoutRef.current = setTimeout(() => {
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
+    }, 600); // Reduced to 600ms for faster visual feedback
 
     try {
       const documentId = `${user.uid}_${game.id}`;
       const favoriteRef = doc(db, 'favorites', documentId);
 
-      if (isFavorite) {
+      // Show feedback immediately
+      showToast(previousState ? 
+        `${game.name} eliminado de favoritos` : 
+        `${game.name} añadido a favoritos`
+      );
+
+      // Perform Firebase operation in background
+      if (previousState) {
         await deleteDoc(favoriteRef);
-        setIsFavorite(false);
-        showToast(`${game.name} eliminado de favoritos`);
       } else {
         const favoriteData = {
           userId: user.uid,
@@ -88,31 +206,48 @@ export default function GameCard({ game }: { game: Game }) {
           gamePrice: game.price || 0,
           addedAt: new Date().toISOString(),
         };
-
         await setDoc(favoriteRef, favoriteData);
-        setIsFavorite(true);
-        showToast(`${game.name} añadido a favoritos`);
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
-      showToast(`Error: No se pudo ${isFavorite ? 'eliminar de' : 'añadir a'} favoritos`);
+      
+      // Only revert UI state if still mounted
+      if (isMounted.current) {
+        setIsFavorite(previousState);
+        
+        // Also revert local cache
+        updateLocalFavoritesCache(previousState);
+        
+        showToast(`Error: No se pudo ${previousState ? 'eliminar de' : 'añadir a'} favoritos`);
+      }
     } finally {
-      setIsLoading(false);
-    };
+      // Cleanup
+      if (isMounted.current) {
+        setTimeout(() => {
+          if (isMounted.current) setPendingOperation(false);
+        }, 200);
+      }
+    }
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    addToCart(game);
-
+    // Actualización inmediata de UI
     setAddedToCart(true);
-    setTimeout(() => {
-      setAddedToCart(false);
-    }, 1500);
-
+    
+    // Añadir al carrito (operación rápida porque es local)
+    addToCart(game);
+    
     showToast(`${game.name} añadido al carrito`);
+    
+    // Resetear el estado visual después de un breve período
+    setTimeout(() => {
+      if (isMounted.current) {
+        setAddedToCart(false);
+      }
+    }, 1500);
   };
 
   // Función para mostrar toast
@@ -142,13 +277,13 @@ export default function GameCard({ game }: { game: Game }) {
   };
 
   const discount = getDiscount();
-  const releaseYear = new Date(game.released).getFullYear();
+  const releaseYear = game.released ? new Date(game.released).getFullYear() : "N/A";
   
-  // Limitar plataformas a mostrar máximo 3
-  const displayPlatforms = game.platforms?.slice(0, 3) || [];
+  // Limitar plataformas a mostrar máximo 3 (con verificación de nulidad)
+  const displayPlatforms = (game.platforms || []).slice(0, 3);
   
-  // Obtener géneros (máximo 2)
-  const displayGenres = game.genres?.slice(0, 2) || [];
+  // Obtener géneros (máximo 2) (con verificación de nulidad)
+  const displayGenres = (game.genres || []).slice(0, 2);
 
   return (
     <div className="group relative h-full">
@@ -217,11 +352,15 @@ export default function GameCard({ game }: { game: Game }) {
               
               {/* Género principal */}
               <div className="flex flex-wrap flex-1 justify-end">
-                {displayGenres.map(genre => (
+                {displayGenres.length > 0 ? displayGenres.map(genre => (
                   <span key={genre.id} className="inline-block bg-violet-900/30 text-violet-300 text-xs px-2 py-0.5 rounded ml-1">
                     {genre.name}
                   </span>
-                ))}
+                )) : (
+                  <span className="inline-block bg-violet-900/30 text-violet-300 text-xs px-2 py-0.5 rounded ml-1">
+                    Sin categoría
+                  </span>
+                )}
               </div>
             </div>
             
@@ -256,8 +395,10 @@ export default function GameCard({ game }: { game: Game }) {
         {/* Botón de favoritos */}
         <button
           onClick={toggleFavorite}
-          disabled={isLoading}
-          className="w-8 h-8 bg-slate-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-slate-700"
+          disabled={pendingOperation}
+          className={`w-8 h-8 bg-slate-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-slate-700 ${
+            pendingOperation ? 'cursor-wait' : ''
+          }`}
           aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
         >
           {isLoading ? (

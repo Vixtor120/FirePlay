@@ -22,9 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#111827" />
       </head>
       <body className="antialiased">
-        <AuthProvider>
-          <CartProvider>
-            <ToastProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <CartProvider>
               <div className="flex flex-col min-h-screen bg-slate-900">
                 <Header />
                 <main className="flex-grow container mx-auto px-4 py-8 pt-24">
@@ -32,9 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </main>
                 <Footer />
               </div>
-            </ToastProvider>
-          </CartProvider>
-        </AuthProvider>
+            </CartProvider>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

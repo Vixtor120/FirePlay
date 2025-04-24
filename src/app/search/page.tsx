@@ -211,6 +211,9 @@ export default function SearchPage() {
           </div>
         )}
       </div>
+
+      {/* Toast para mensajes de feedback */}
+      <div id="toast" className="hidden fixed bottom-4 right-4 bg-indigo-600 text-white py-2 px-4 rounded shadow-lg z-50"></div>
     </div>
   );
 }
