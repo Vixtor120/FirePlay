@@ -4,6 +4,13 @@ import { Game, GameDetails, Genre } from '../types/game.types';
 const RAWG_API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY;
 const BASE_URL = 'https://api.rawg.io/api';
 
+// Add error interface
+interface ApiError {
+  message: string;
+  code?: string;
+  status?: number;
+}
+
 // Función para asignar precios aleatorios a los juegos (simulación)
 const assignPrice = (game: any): Game => {
   const basePrice = game.rating > 4 ? 59.99 : game.rating > 3 ? 39.99 : 19.99;
@@ -25,9 +32,10 @@ export async function getPopularGames(page = 1, pageSize = 9): Promise<Game[]> {
     });
     
     return response.data.results.map(assignPrice);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching popular games:', error);
-    return [];
+    const apiError = error as ApiError;
+    throw new Error(apiError.message || 'Unknown error occurred');
   }
 }
 

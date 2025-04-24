@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
+import { FavoriteItem, FavoriteCache } from '@/types/favorite.types';
 
 export default function GameCard({ game }: { game: Game }) {
   const { user } = useAuth();
@@ -45,8 +46,8 @@ export default function GameCard({ game }: { game: Game }) {
       const userFavoritesKey = `fireplay_favorites_${user?.uid || 'guest'}`;
       const cachedFavoritesJson = localStorage.getItem(userFavoritesKey);
       if (cachedFavoritesJson && user) {
-        const cachedFavorites = JSON.parse(cachedFavoritesJson);
-        const isFav = cachedFavorites.data.some((fav: any) => fav.gameId === game.id);
+        const cachedFavorites = JSON.parse(cachedFavoritesJson) as FavoriteCache;
+        const isFav = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === game.id);
         setIsFavorite(isFav);
       }
     } catch (error) {

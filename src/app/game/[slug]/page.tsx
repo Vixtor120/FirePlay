@@ -4,7 +4,6 @@ import { getGameDetails } from '../../../lib/requests';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { GameDetails } from '@/types/game.types';
 import FavoriteButton from '@/components/FavoriteButton';
@@ -42,7 +41,6 @@ function GameDetailsLoading() {
 
 // Componente para mostrar los detalles del juego
 function GameDetailsContent({ game }: { game: GameDetails | null }) {
-  const { user } = useAuth();
   const { addToCart, cartItems } = useCart();
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);

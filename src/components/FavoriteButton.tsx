@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/firebase';
+import { FavoriteItem, FavoriteCache } from '@/types/favorite.types';
 
 interface FavoriteButtonProps {
   gameId: number;
@@ -43,8 +44,8 @@ export default function FavoriteButton({
     try {
       const cachedFavoritesJson = localStorage.getItem(localCacheKey.current);
       if (cachedFavoritesJson && user) {
-        const cachedFavorites = JSON.parse(cachedFavoritesJson);
-        const isFav = cachedFavorites.data.some((fav: any) => fav.gameId === gameId);
+        const cachedFavorites = JSON.parse(cachedFavoritesJson) as FavoriteCache;
+        const isFav = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === gameId);
         setIsFavorite(isFav);
       }
     } catch (error) {
@@ -85,11 +86,11 @@ export default function FavoriteButton({
       const cachedFavoritesJson = localStorage.getItem(localCacheKey.current);
       
       if (cachedFavoritesJson) {
-        const cachedFavorites = JSON.parse(cachedFavoritesJson);
+        const cachedFavorites = JSON.parse(cachedFavoritesJson) as FavoriteCache;
         
         if (isFav) {
           // Añadir a favoritos en caché
-          const newFavorite = {
+          const newFavorite: FavoriteItem = {
             id: `${user.uid}_${gameId}`,
             gameId,
             gameName,
@@ -101,7 +102,7 @@ export default function FavoriteButton({
           };
           
           // Verificar que no exista ya
-          const exists = cachedFavorites.data.some((fav: any) => fav.gameId === gameId);
+          const exists = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === gameId);
           
           if (!exists) {
             cachedFavorites.data.unshift(newFavorite);
@@ -111,14 +112,14 @@ export default function FavoriteButton({
         } else {
           // Eliminar de favoritos en caché
           cachedFavorites.data = cachedFavorites.data.filter(
-            (fav: any) => fav.gameId !== gameId
+            (fav: FavoriteItem) => fav.gameId !== gameId
           );
           cachedFavorites.timestamp = new Date().toISOString();
           localStorage.setItem(localCacheKey.current, JSON.stringify(cachedFavorites));
         }
       } else if (isFav) {
         // Si no existe caché, crear uno nuevo solo si estamos añadiendo
-        const newCache = {
+        const newCache: FavoriteCache = {
           data: [{
             id: `${user.uid}_${gameId}`,
             gameId,

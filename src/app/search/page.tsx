@@ -149,7 +149,7 @@ export default function SearchPage() {
           <h2 className="text-2xl font-bold text-white flex items-center">
             {isSearchActive ? (
               <>
-                <span>Resultados para: "{searchTerm}"</span>
+                <span>Resultados para: &quot;{searchTerm}&quot;</span>
                 <button 
                   onClick={clearSearch}
                   className="ml-3 text-sm bg-slate-800 text-slate-300 px-2 py-1 rounded hover:bg-slate-700 transition-colors"

@@ -3,7 +3,7 @@
  * If the value is a string that can be parsed as a number, returns the parsed number.
  * Otherwise, returns the value if it's already a number, or defaultValue.
  */
-export function ensureNumber(value: any, defaultValue = 0): number {
+export function ensureNumber(value: unknown, defaultValue = 0): number {
   if (value === undefined || value === null) {
     return defaultValue;
   }
@@ -38,4 +38,11 @@ export function calculateDiscountedPrice(price: number | undefined | null, disco
 export function calculateOriginalPrice(discountedPrice: number | undefined | null, discountPercentage: number): number {
   const safePrice = ensureNumber(discountedPrice);
   return discountPercentage === 100 ? safePrice : safePrice / (1 - discountPercentage / 100);
+}
+
+/**
+ * Checks if a value is an object
+ */
+export function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
