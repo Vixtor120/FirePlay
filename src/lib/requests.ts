@@ -1,7 +1,12 @@
 import axios from 'axios';
 import { Game, GameDetails, Genre } from '../types/game.types';
 
-const RAWG_API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY;
+// Make sure the API key is always available and properly typed
+const RAWG_API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY || '';
+if (!RAWG_API_KEY) {
+  console.error('RAWG API key is missing. Please add it to your environment variables.');
+}
+
 const BASE_URL = 'https://api.rawg.io/api';
 
 // Define interfaces for API responses
@@ -90,7 +95,7 @@ export async function searchGames(
     console.log(`Searching games: query "${query}", page ${page}, ordering ${ordering}`);
     
     const params: Record<string, string | number> = {
-      key: RAWG_API_KEY,
+      key: RAWG_API_KEY, // Now RAWG_API_KEY is guaranteed to be a string
       page,
       page_size: pageSize,
       ordering: ordering,
