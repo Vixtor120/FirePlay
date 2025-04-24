@@ -37,13 +37,20 @@ export default function RegisterPage() {
       setLoading(true);
       await register(email, password);
       router.push('/home');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error de registro:', error);
       
-      if (error.code === 'auth/email-already-in-use') {
-        setError('Este email ya está registrado');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('El formato del email no es válido');
+      // Type guard for error with code property
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorWithCode = error as { code: string };
+        
+        if (errorWithCode.code === 'auth/email-already-in-use') {
+          setError('Este email ya está registrado');
+        } else if (errorWithCode.code === 'auth/invalid-email') {
+          setError('El formato del email no es válido');
+        } else {
+          setError('Error al registrar. Por favor, inténtalo de nuevo');
+        }
       } else {
         setError('Error al registrar. Por favor, inténtalo de nuevo');
       }

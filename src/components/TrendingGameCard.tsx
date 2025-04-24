@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useToast } from './GlobalToast';
-import { useRouter } from 'next/navigation';
 
 interface TrendingGameCardProps {
   title: string;
@@ -20,9 +19,8 @@ export default function TrendingGameCard({
   accentColor
 }: TrendingGameCardProps) {
   const { showToast } = useToast();
-  const router = useRouter();
   
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = () => {
     // Show toast notification when trending card is clicked
     showToast(`Explorando ${title}`, 'info');
     // Navigation happens through the Link component

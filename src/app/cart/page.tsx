@@ -38,7 +38,8 @@ export default function CartPage() {
 
       setLoadingRecommendations(true);
       try {
-        const cartGenres = cartItems
+        // Remove unused variable and just get genres without storing them
+        cartItems
           .flatMap(item => item.genres?.map(g => g.id) || [])
           .filter((value, index, self) => self.indexOf(value) === index);
 

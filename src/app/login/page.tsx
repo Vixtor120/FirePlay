@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
-import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,13 +28,19 @@ export default function LoginPage() {
       setLoading(true);
       await login(email, password);
       router.push(`/${redirectPath}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error de autenticación:', error);
       
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setError('Email o contraseña incorrectos');
-      } else if (error.code === 'auth/too-many-requests') {
-        setError('Demasiados intentos fallidos. Prueba más tarde');
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorWithCode = error as { code: string };
+        
+        if (errorWithCode.code === 'auth/user-not-found' || errorWithCode.code === 'auth/wrong-password') {
+          setError('Email o contraseña incorrectos');
+        } else if (errorWithCode.code === 'auth/too-many-requests') {
+          setError('Demasiados intentos fallidos. Prueba más tarde');
+        } else {
+          setError('Error al iniciar sesión. Por favor, inténtalo de nuevo');
+        }
       } else {
         setError('Error al iniciar sesión. Por favor, inténtalo de nuevo');
       }

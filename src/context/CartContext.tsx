@@ -1,10 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebase/firebase';
 import { useAuth } from './AuthContext';
-import { Game, Genre } from '@/types/game.types';
+import { Genre } from '@/types/game.types';
 
 interface CartItem {
   id: number;

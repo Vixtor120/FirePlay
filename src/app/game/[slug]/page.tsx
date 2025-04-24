@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
-import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase/firebase';
 import { GameDetails } from '@/types/game.types';
 import FavoriteButton from '@/components/FavoriteButton';
 
@@ -52,7 +50,6 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
   const [quantity, setQuantity] = useState(1);
   const isMounted = useRef(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const localCacheKey = useRef(`fireplay_favorites_${user?.uid || 'guest'}`);
 
   // Verificar si el juego ya está en el carrito
   useEffect(() => {
@@ -69,9 +66,11 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
 
   useEffect(() => {
     isMounted.current = true;
+    const currentTimeoutRef = timeoutRef.current;
+
     return () => {
       isMounted.current = false;
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (currentTimeoutRef) clearTimeout(currentTimeoutRef);
     };
   }, []);
 

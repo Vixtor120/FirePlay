@@ -5,14 +5,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCart } from '../context/CartContext';
-import Image from 'next/image';
 
 export default function Header() {
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   
@@ -28,7 +26,6 @@ export default function Header() {
   
   const handleLogout = async () => {
     await logout();
-    setShowUserMenu(false);
     router.push('/home');
   };
 
