@@ -92,11 +92,11 @@ export default function GameCard({ game }: { game: Game }) {
       const cachedFavoritesJson = localStorage.getItem(userFavoritesKey);
       
       if (cachedFavoritesJson) {
-        const cachedFavorites = JSON.parse(cachedFavoritesJson);
+        const cachedFavorites = JSON.parse(cachedFavoritesJson) as FavoriteCache;
         
         if (isFav) {
           // Añadir a favoritos en caché
-          const newFavorite = {
+          const newFavorite: FavoriteItem = {
             id: `${user.uid}_${game.id}`,
             gameId: game.id,
             gameName: game.name,
@@ -108,7 +108,7 @@ export default function GameCard({ game }: { game: Game }) {
           };
           
           // Verificar que no exista ya
-          const exists = cachedFavorites.data.some((fav: any) => fav.gameId === game.id);
+          const exists = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === game.id);
           
           if (!exists) {
             cachedFavorites.data.unshift(newFavorite);
@@ -118,7 +118,7 @@ export default function GameCard({ game }: { game: Game }) {
         } else {
           // Eliminar de favoritos en caché
           cachedFavorites.data = cachedFavorites.data.filter(
-            (fav: any) => fav.gameId !== game.id
+            (fav: FavoriteItem) => fav.gameId !== game.id
           );
           cachedFavorites.timestamp = new Date().toISOString();
           localStorage.setItem(userFavoritesKey, JSON.stringify(cachedFavorites));

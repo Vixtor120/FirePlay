@@ -4,15 +4,22 @@ import { Game, GameDetails, Genre } from '../types/game.types';
 const RAWG_API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY;
 const BASE_URL = 'https://api.rawg.io/api';
 
-// Add error interface
+// Define interfaces for API responses
+interface ApiGameResponse {
+  results: Game[];
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
+
 interface ApiError {
   message: string;
-  code?: string;
+  code?: number;
   status?: number;
 }
 
 // Función para asignar precios aleatorios a los juegos (simulación)
-const assignPrice = (game: any): Game => {
+const assignPrice = (game: Game): Game => {
   const basePrice = game.rating > 4 ? 59.99 : game.rating > 3 ? 39.99 : 19.99;
   const price = +(basePrice - (Math.random() * 5)).toFixed(2);
   return { ...game, price };
@@ -22,7 +29,7 @@ const assignPrice = (game: any): Game => {
 export async function getPopularGames(page = 1, pageSize = 9): Promise<Game[]> {
   try {
     console.log(`Fetching popular games: page ${page}, size ${pageSize}`);
-    const response = await axios.get(`${BASE_URL}/games`, {
+    const response = await axios.get<ApiGameResponse>(`${BASE_URL}/games`, {
       params: {
         key: RAWG_API_KEY,
         page,
@@ -42,14 +49,14 @@ export async function getPopularGames(page = 1, pageSize = 9): Promise<Game[]> {
 // Obtener detalles de un juego específico
 export async function getGameDetails(slug: string): Promise<GameDetails | null> {
   try {
-    const response = await axios.get(`${BASE_URL}/games/${slug}`, {
+    const response = await axios.get<GameDetails>(`${BASE_URL}/games/${slug}`, {
       params: {
         key: RAWG_API_KEY,
       },
     });
     
     // Obtener capturas de pantalla
-    const screenshotsResponse = await axios.get(`${BASE_URL}/games/${slug}/screenshots`, {
+    const screenshotsResponse = await axios.get<{ results: { id: number; image: string }[] }>(`${BASE_URL}/games/${slug}/screenshots`, {
       params: {
         key: RAWG_API_KEY,
       },
@@ -65,7 +72,8 @@ export async function getGameDetails(slug: string): Promise<GameDetails | null> 
     };
   } catch (error) {
     console.error(`Error fetching details for game ${slug}:`, error);
-    return null;
+    const apiError = error as ApiError;
+    throw new Error(apiError.message || 'Unknown error occurred');
   }
 }
 
@@ -81,7 +89,7 @@ export async function searchGames(
   try {
     console.log(`Searching games: query "${query}", page ${page}, ordering ${ordering}`);
     
-    const params: any = {
+    const params: Record<string, string | number> = {
       key: RAWG_API_KEY,
       page,
       page_size: pageSize,
@@ -102,19 +110,20 @@ export async function searchGames(
       params.platforms = platforms.join(',');
     }
 
-    const response = await axios.get(`${BASE_URL}/games`, { params });
+    const response = await axios.get<ApiGameResponse>(`${BASE_URL}/games`, { params });
     
     return response.data.results.map(assignPrice);
   } catch (error) {
     console.error('Error searching games:', error);
-    return [];
+    const apiError = error as ApiError;
+    throw new Error(apiError.message || 'Unknown error occurred');
   }
 }
 
 // Obtener lista de géneros
 export async function getGenres(): Promise<Genre[]> {
   try {
-    const response = await axios.get(`${BASE_URL}/genres`, {
+    const response = await axios.get<{ results: Genre[] }>(`${BASE_URL}/genres`, {
       params: {
         key: RAWG_API_KEY,
       },
@@ -123,14 +132,15 @@ export async function getGenres(): Promise<Genre[]> {
     return response.data.results;
   } catch (error) {
     console.error('Error fetching genres:', error);
-    return [];
+    const apiError = error as ApiError;
+    throw new Error(apiError.message || 'Unknown error occurred');
   }
 }
 
 // Obtener lista de plataformas
 export async function getPlatforms(): Promise<{id: number; name: string; slug: string}[]> {
   try {
-    const response = await axios.get(`${BASE_URL}/platforms`, {
+    const response = await axios.get<{ results: { id: number; name: string; slug: string }[] }>(`${BASE_URL}/platforms`, {
       params: {
         key: RAWG_API_KEY,
       },
@@ -139,6 +149,7 @@ export async function getPlatforms(): Promise<{id: number; name: string; slug: s
     return response.data.results;
   } catch (error) {
     console.error('Error fetching platforms:', error);
-    return [];
+    const apiError = error as ApiError;
+    throw new Error(apiError.message || 'Unknown error occurred');
   }
 }

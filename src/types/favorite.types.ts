@@ -1,5 +1,5 @@
 /**
- * Types for favorite game items
+ * Type definitions for favorite game items
  */
 
 export interface FavoriteItem {
