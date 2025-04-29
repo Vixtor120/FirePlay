@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Game } from '../types/game.types';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -11,12 +11,12 @@ import { db } from '../firebase/firebase';
 import { FavoriteItem, FavoriteCache } from '@/types/favorite.types';
 
 export default function GameCard({ game }: { game: Game }) {
-  // Make sure game has all required properties
-  const completeGame = {
+  // Use useMemo to prevent the completeGame object from changing on every render
+  const completeGame = useMemo(() => ({
     ...game,
     originalPrice: game.originalPrice ?? null,
     discountPercentage: game.discountPercentage ?? null
-  } as Game;
+  } as Game), [game]);
 
   const { user } = useAuth();
   const { addToCart } = useCart();

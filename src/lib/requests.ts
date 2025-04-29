@@ -1,30 +1,30 @@
-import { Game, GameDetails, SearchResponse } from '@/types/game.types';
+import { Game, GameDetails } from '@/types/game.types';
 
 const API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY || 'your-api-key';
 const BASE_URL = 'https://api.rawg.io/api';
 
 // Función para añadir precios y descuentos a los juegos (ya que la API no los proporciona)
-function addPriceInfo(games: any[]): Game[] {
+function addPriceInfo(games: Game[]): Game[] {
   return games.map(game => {
     // Generamos precio aleatorio entre 20 y 60 euros
-    let price = Math.floor(Math.random() * 40) + 20;
+    const price = Math.floor(Math.random() * 40) + 20;
     
     // En 70% de los casos, aplicamos descuento
-    let originalPrice: number | null = null;
-    let discountPercentage: number | null = null;
+    let originalPrice = null;
+    let discountPercentage = null;
     
     if (Math.random() < 0.7) {
       discountPercentage = Math.floor(Math.random() * 6) * 5; // Descuentos de 5%, 10%, 15%, 20%, 25% o 30%
       originalPrice = price + Math.round(price * discountPercentage / 100);
     }
     
-    // Asegurar que se devuelve un objeto Game completo
+    // Asegurarse de que originalPrice sea null cuando no hay descuento
     return {
       ...game,
       price,
       originalPrice,
       discountPercentage
-    } as Game;
+    };
   });
 }
 
