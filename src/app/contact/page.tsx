@@ -349,7 +349,7 @@ export default function ContactPage() {
           <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-5">
             <h3 className="text-lg font-medium text-white mb-2">¿Cuál es la política de reembolsos?</h3>
             <p className="text-slate-400">
-              Ofrecemos reembolsos para juegos adquiridos en los últimos 14 días y con menos de 2 horas de juego. Para solicitar un reembolso, completa el formulario de contacto seleccionando "Solicitud de reembolso".
+              Ofrecemos reembolsos para juegos adquiridos en los últimos 14 días y con menos de 2 horas de juego. Para solicitar un reembolso, completa el formulario de contacto seleccionando &quot;Solicitud de reembolso&quot;.
             </p>
           </div>
           
@@ -363,7 +363,7 @@ export default function ContactPage() {
           <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-5">
             <h3 className="text-lg font-medium text-white mb-2">¿Cómo actualizo mi método de pago?</h3>
             <p className="text-slate-400">
-              Puedes actualizar tus métodos de pago desde la sección "Ajustes de cuenta" en tu perfil. Admitimos tarjetas de crédito/débito, PayPal y diversas opciones de monedero electrónico.
+              Puedes actualizar tus métodos de pago desde la sección &quot;Ajustes de cuenta&quot; en tu perfil. Admitimos tarjetas de crédito/débito, PayPal y diversas opciones de monedero electrónico.
             </p>
           </div>
         </div>

@@ -4,7 +4,7 @@ const API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY || 'your-api-key';
 const BASE_URL = 'https://api.rawg.io/api';
 
 // Función para añadir precios y descuentos a los juegos (ya que la API no los proporciona)
-function addPriceInfo(games: any[]): Game[] {
+function addPriceInfo(games: Game[]): Game[] {
   return games.map(game => {
     // Generamos precio aleatorio entre 20 y 60 euros
     let price = Math.floor(Math.random() * 40) + 20;
@@ -44,9 +44,9 @@ export async function getPopularGames(page: number = 1, pageSize: number = 10): 
     
     const data = await response.json();
     return addPriceInfo(data.results);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting popular games:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -61,9 +61,9 @@ export async function searchGames(query: string, page: number = 1, pageSize: num
     
     const data = await response.json();
     return addPriceInfo(data.results);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error searching games:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -96,7 +96,7 @@ export async function getGameDetails(slug: string): Promise<GameDetails | null> 
       ...gameWithPrice,
       screenshots
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting game details:', error);
     return null;
   }

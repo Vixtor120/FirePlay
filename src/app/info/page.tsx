@@ -6,6 +6,11 @@ import Link from 'next/link';
 export default function InfoPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'technologies' | 'architecture' | 'features'>('overview');
 
+  // Fix the any type by specifying a proper type
+  const handleTabChange = (tabId: 'overview' | 'technologies' | 'architecture' | 'features') => {
+    setActiveTab(tabId);
+  };
+
   // Lista de tecnologías con sus descripciones
   const technologies = [
     {
@@ -311,7 +316,7 @@ export default function InfoPage() {
                   ? 'text-white'
                   : 'text-slate-400 hover:text-white'
               }`}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => handleTabChange(tab.id as 'overview' | 'technologies' | 'architecture' | 'features')}
             >
               {tab.label}
               {activeTab === tab.id && (
