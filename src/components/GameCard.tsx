@@ -11,6 +11,13 @@ import { db } from '../firebase/firebase';
 import { FavoriteItem, FavoriteCache } from '@/types/favorite.types';
 
 export default function GameCard({ game }: { game: Game }) {
+  // Make sure game has all required properties
+  const completeGame = {
+    ...game,
+    originalPrice: game.originalPrice ?? null,
+    discountPercentage: game.discountPercentage ?? null
+  } as Game;
+
   const { user } = useAuth();
   const { addToCart } = useCart();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -47,7 +54,7 @@ export default function GameCard({ game }: { game: Game }) {
       const cachedFavoritesJson = localStorage.getItem(userFavoritesKey);
       if (cachedFavoritesJson && user) {
         const cachedFavorites = JSON.parse(cachedFavoritesJson) as FavoriteCache;
-        const isFav = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === game.id);
+        const isFav = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === completeGame.id);
         setIsFavorite(isFav);
       }
     } catch (error) {
@@ -62,7 +69,7 @@ export default function GameCard({ game }: { game: Game }) {
       }
 
       try {
-        const favoriteRef = doc(db, 'favorites', `${user.uid}_${game.id}`);
+        const favoriteRef = doc(db, 'favorites', `${user.uid}_${completeGame.id}`);
         const favoriteSnap = await getDoc(favoriteRef);
         
         if (isMounted.current) {
@@ -81,7 +88,7 @@ export default function GameCard({ game }: { game: Game }) {
     return () => {
       isMounted.current = false;
     };
-  }, [game.id, user]);
+  }, [completeGame.id, user]);
 
   // Actualizar el caché local cuando se cambia el estado de favorito
   const updateLocalFavoritesCache = useCallback((isFav: boolean) => {
@@ -97,18 +104,18 @@ export default function GameCard({ game }: { game: Game }) {
         if (isFav) {
           // Añadir a favoritos en caché
           const newFavorite: FavoriteItem = {
-            id: `${user.uid}_${game.id}`,
-            gameId: game.id,
-            gameName: game.name,
-            gameSlug: game.slug,
-            gameImage: game.background_image || '',
-            gameRating: game.rating || 0,
-            gamePrice: game.price || 0,
+            id: `${user.uid}_${completeGame.id}`,
+            gameId: completeGame.id,
+            gameName: completeGame.name,
+            gameSlug: completeGame.slug,
+            gameImage: completeGame.background_image || '',
+            gameRating: completeGame.rating || 0,
+            gamePrice: completeGame.price || 0,
             addedAt: new Date().toISOString(),
           };
           
           // Verificar que no exista ya
-          const exists = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === game.id);
+          const exists = cachedFavorites.data.some((fav: FavoriteItem) => fav.gameId === completeGame.id);
           
           if (!exists) {
             cachedFavorites.data.unshift(newFavorite);
@@ -118,7 +125,7 @@ export default function GameCard({ game }: { game: Game }) {
         } else {
           // Eliminar de favoritos en caché
           cachedFavorites.data = cachedFavorites.data.filter(
-            (fav: FavoriteItem) => fav.gameId !== game.id
+            (fav: FavoriteItem) => fav.gameId !== completeGame.id
           );
           cachedFavorites.timestamp = new Date().toISOString();
           localStorage.setItem(userFavoritesKey, JSON.stringify(cachedFavorites));
@@ -127,13 +134,13 @@ export default function GameCard({ game }: { game: Game }) {
         // Si no existe caché, crear uno nuevo solo si estamos añadiendo
         const newCache = {
           data: [{
-            id: `${user.uid}_${game.id}`,
-            gameId: game.id,
-            gameName: game.name,
-            gameSlug: game.slug,
-            gameImage: game.background_image || '',
-            gameRating: game.rating || 0,
-            gamePrice: game.price || 0,
+            id: `${user.uid}_${completeGame.id}`,
+            gameId: completeGame.id,
+            gameName: completeGame.name,
+            gameSlug: completeGame.slug,
+            gameImage: completeGame.background_image || '',
+            gameRating: completeGame.rating || 0,
+            gamePrice: completeGame.price || 0,
             addedAt: new Date().toISOString(),
           }],
           timestamp: new Date().toISOString()
@@ -143,7 +150,7 @@ export default function GameCard({ game }: { game: Game }) {
     } catch (error) {
       console.error('Error updating favorites cache:', error);
     }
-  }, [game, user]);
+  }, [completeGame, user]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -184,13 +191,13 @@ export default function GameCard({ game }: { game: Game }) {
     }, 600); // Reduced to 600ms for faster visual feedback
 
     try {
-      const documentId = `${user.uid}_${game.id}`;
+      const documentId = `${user.uid}_${completeGame.id}`;
       const favoriteRef = doc(db, 'favorites', documentId);
 
       // Show feedback immediately
       showToast(previousState ? 
-        `${game.name} eliminado de favoritos` : 
-        `${game.name} añadido a favoritos`
+        `${completeGame.name} eliminado de favoritos` : 
+        `${completeGame.name} añadido a favoritos`
       );
 
       // Perform Firebase operation in background
@@ -199,12 +206,12 @@ export default function GameCard({ game }: { game: Game }) {
       } else {
         const favoriteData = {
           userId: user.uid,
-          gameId: game.id,
-          gameName: game.name,
-          gameSlug: game.slug,
-          gameImage: game.background_image || '',
-          gameRating: game.rating || 0,
-          gamePrice: game.price || 0,
+          gameId: completeGame.id,
+          gameName: completeGame.name,
+          gameSlug: completeGame.slug,
+          gameImage: completeGame.background_image || '',
+          gameRating: completeGame.rating || 0,
+          gamePrice: completeGame.price || 0,
           addedAt: new Date().toISOString(),
         };
         await setDoc(favoriteRef, favoriteData);
@@ -245,9 +252,9 @@ export default function GameCard({ game }: { game: Game }) {
     setAddedToCart(true);
     
     // Añadir al carrito (operación rápida porque es local)
-    addToCart(game);
+    addToCart(completeGame);
     
-    showToast(`${game.name} añadido al carrito`);
+    showToast(`${completeGame.name} añadido al carrito`);
     
     // Resetear el estado visual después de un breve período
     setTimeout(() => {
@@ -270,27 +277,27 @@ export default function GameCard({ game }: { game: Game }) {
   };
 
   // Replace the getDiscount function with this streamlined approach
-  const hasDiscount = game.originalPrice && game.discountPercentage;
+  const hasDiscount = completeGame.originalPrice && completeGame.discountPercentage;
 
-  const releaseYear = game.released ? new Date(game.released).getFullYear() : "N/A";
+  const releaseYear = completeGame.released ? new Date(completeGame.released).getFullYear() : "N/A";
   
   // Limitar plataformas a mostrar máximo 3 (con verificación de nulidad)
-  const displayPlatforms = (game.platforms || []).slice(0, 3);
+  const displayPlatforms = (completeGame.platforms || []).slice(0, 3);
   
   // Obtener géneros (máximo 2) (con verificación de nulidad)
-  const displayGenres = (game.genres || []).slice(0, 2);
+  const displayGenres = (completeGame.genres || []).slice(0, 2);
 
   return (
     <div className="group relative h-full">
       {/* Card con efecto de elevación pero sin cambios estructurales en hover */}
-      <Link href={`/game/${game.slug}`} className="block h-full">
+      <Link href={`/game/${completeGame.slug}`} className="block h-full">
         <div className="h-full rounded-xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 shadow-lg border border-slate-700/50 transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-xl">
           
           {/* Imagen principal */}
           <div className="relative h-48 overflow-hidden">
             <Image
-              src={game.background_image || '/placeholder-game.jpg'}
-              alt={game.name}
+              src={completeGame.background_image || '/placeholder-game.jpg'}
+              alt={completeGame.name}
               fill
               className="object-cover transition-all duration-300 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -307,7 +314,7 @@ export default function GameCard({ game }: { game: Game }) {
             {/* Descuento si existe */}
             {hasDiscount && (
               <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
-                -{game.discountPercentage}%
+                -{completeGame.discountPercentage}%
               </div>
             )}
             
@@ -342,7 +349,7 @@ export default function GameCard({ game }: { game: Game }) {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 mr-0.5">
                   <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" />
                 </svg>
-                <span>{game.rating.toFixed(1)}</span>
+                <span>{completeGame.rating.toFixed(1)}</span>
               </div>
               
               {/* Género principal */}
@@ -360,7 +367,7 @@ export default function GameCard({ game }: { game: Game }) {
             </div>
             
             <h3 className="text-lg font-semibold mb-2 text-white line-clamp-1 group-hover:text-violet-400 transition-colors">
-              {game.name}
+              {completeGame.name}
             </h3>
             
             <div className="flex items-end justify-between">
@@ -368,15 +375,15 @@ export default function GameCard({ game }: { game: Game }) {
                 {hasDiscount ? (
                   <>
                     <span className="text-xs text-slate-400 line-through block">
-                      €{game.originalPrice?.toFixed(2)}
+                      €{completeGame.originalPrice?.toFixed(2)}
                     </span>
                     <span className="text-lg font-bold text-violet-400">
-                      €{(game.price ?? 0).toFixed(2)}
+                      €{(completeGame.price ?? 0).toFixed(2)}
                     </span>
                   </>
                 ) : (
                   <span className="text-lg font-bold text-violet-400">
-                    €{(game.price ?? 0).toFixed(2)}
+                    €{(completeGame.price ?? 0).toFixed(2)}
                   </span>
                 )}
               </div>

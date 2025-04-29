@@ -1,67 +1,66 @@
-import { Game, GameDetails } from '@/types/game.types';
+import { Game, GameDetails, SearchResponse } from '@/types/game.types';
 
 const API_KEY = process.env.NEXT_PUBLIC_RAWG_API_KEY || 'your-api-key';
 const BASE_URL = 'https://api.rawg.io/api';
 
 // Función para añadir precios y descuentos a los juegos (ya que la API no los proporciona)
-function addPriceInfo(games: Game[]): Game[] {
+function addPriceInfo(games: any[]): Game[] {
   return games.map(game => {
     // Generamos precio aleatorio entre 20 y 60 euros
     let price = Math.floor(Math.random() * 40) + 20;
     
-    // Creamos descuento en aproximadamente 30% de los juegos
-    const hasDiscount = Math.random() <= 0.3;
-    let originalPrice = null;
-    let discountPercentage = null;
+    // En 70% de los casos, aplicamos descuento
+    let originalPrice: number | null = null;
+    let discountPercentage: number | null = null;
     
-    if (hasDiscount) {
-      // Descuentos de 10%, 15%, 20%, 25% o 50%
-      const possibleDiscounts = [10, 15, 20, 25, 50];
-      discountPercentage = possibleDiscounts[Math.floor(Math.random() * possibleDiscounts.length)];
-      
-      // Calculamos precio original y luego el precio con descuento
-      originalPrice = price;
-      price = Math.round((price * (100 - discountPercentage) / 100) * 100) / 100;
+    if (Math.random() < 0.7) {
+      discountPercentage = Math.floor(Math.random() * 6) * 5; // Descuentos de 5%, 10%, 15%, 20%, 25% o 30%
+      originalPrice = price + Math.round(price * discountPercentage / 100);
     }
     
+    // Asegurar que se devuelve un objeto Game completo
     return {
       ...game,
       price,
-      originalPrice: hasDiscount ? originalPrice : undefined,
-      discountPercentage: hasDiscount ? discountPercentage : undefined
-    };
+      originalPrice,
+      discountPercentage
+    } as Game;
   });
 }
 
 // Obtener juegos populares
-export async function getPopularGames(page: number = 1, pageSize: number = 10): Promise<Game[]> {
+export async function getPopularGames(page = 1, pageSize = 20): Promise<Game[]> {
   try {
     const response = await fetch(
-      `${BASE_URL}/games?key=${API_KEY}&page=${page}&page_size=${pageSize}&ordering=-rating`
+      `${BASE_URL}/games?key=${API_KEY}&ordering=-rating&page=${page}&page_size=${pageSize}`
     );
     
-    if (!response.ok) throw new Error('Error fetching games');
+    if (!response.ok) {
+      throw new Error(`RAWG API error: ${response.status}`);
+    }
     
     const data = await response.json();
     return addPriceInfo(data.results);
-  } catch (error: unknown) {
-    console.error('Error getting popular games:', error);
+  } catch (error) {
+    console.error('Error fetching popular games:', error);
     throw error;
   }
 }
 
 // Buscar juegos
-export async function searchGames(query: string, page: number = 1, pageSize: number = 10): Promise<Game[]> {
+export async function searchGames(query: string, page = 1, pageSize = 20): Promise<Game[]> {
   try {
     const response = await fetch(
-      `${BASE_URL}/games?key=${API_KEY}&search=${query}&page=${page}&page_size=${pageSize}`
+      `${BASE_URL}/games?key=${API_KEY}&search=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}`
     );
     
-    if (!response.ok) throw new Error('Error searching games');
+    if (!response.ok) {
+      throw new Error(`RAWG API error: ${response.status}`);
+    }
     
     const data = await response.json();
     return addPriceInfo(data.results);
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Error searching games:', error);
     throw error;
   }
@@ -71,11 +70,13 @@ export async function searchGames(query: string, page: number = 1, pageSize: num
 export async function getGameDetails(slug: string): Promise<GameDetails | null> {
   try {
     // Obtener datos básicos del juego
-    const gameResponse = await fetch(`${BASE_URL}/games/${slug}?key=${API_KEY}`);
+    const response = await fetch(`${BASE_URL}/games/${slug}?key=${API_KEY}`);
     
-    if (!gameResponse.ok) throw new Error('Error fetching game details');
+    if (!response.ok) {
+      throw new Error(`RAWG API error: ${response.status}`);
+    }
     
-    const gameData = await gameResponse.json();
+    const gameData = await response.json();
     
     // Obtener capturas de pantalla
     const screenshotsResponse = await fetch(
@@ -89,14 +90,20 @@ export async function getGameDetails(slug: string): Promise<GameDetails | null> 
     }
     
     // Añadir precio y descuento
-    const gameWithPrice = addPriceInfo([gameData])[0];
+    const priceData = addPriceInfo([gameData])[0];
     
-    // Retornar el objeto combinado
-    return {
-      ...gameWithPrice,
-      screenshots
+    // Combinar todo en un objeto GameDetails
+    const gameDetails: GameDetails = {
+      ...priceData,
+      screenshots,
+      description_raw: gameData.description_raw || '',
+      developers: gameData.developers || [],
+      publishers: gameData.publishers || [],
+      website: gameData.website || ''
     };
-  } catch (error: unknown) {
+    
+    return gameDetails;
+  } catch (error) {
     console.error('Error getting game details:', error);
     return null;
   }

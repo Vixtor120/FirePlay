@@ -12,21 +12,6 @@ export interface Genre {
   slug: string;
 }
 
-export interface Developer {
-  id: number;
-  name: string;
-  slug: string;
-  games_count: number;
-  image_background: string;
-}
-
-export interface Screenshot {
-  id: number;
-  image: string;
-  width: number;
-  height: number;
-}
-
 export interface Game {
   id: number;
   slug: string;
@@ -35,30 +20,33 @@ export interface Game {
   background_image: string;
   rating: number;
   metacritic?: number;
+  price: number;
+  originalPrice: number | null | undefined;
+  discountPercentage: number | null | undefined;
   platforms: Platform[];
   genres: Genre[];
-  price: number;
-  originalPrice?: number;
-  discountPercentage?: number;
 }
 
 export interface GameDetails extends Game {
-  description_raw?: string;
-  developers?: Developer[];
-  publishers?: Developer[];
-  esrb_rating?: {
+  description_raw: string;
+  developers?: {
     id: number;
     name: string;
-    slug: string;
-  };
+  }[];
+  publishers?: {
+    id: number;
+    name: string;
+  }[];
+  screenshots?: {
+    id: number;
+    image: string;
+  }[];
   website?: string;
-  screenshots?: Screenshot[];
 }
 
-// Tipos específicos para filtros
-export interface PlatformParent {
-  id: number;
-  name: string;
-  slug: string;
-  platforms?: Platform[];
+export interface SearchResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Game[];
 }

@@ -110,16 +110,18 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
     try {
       // Pass the game object directly since the structures now match
       addToCart({
-        id: game.id,
-        slug: game.slug || '',
-        name: game.name || '',
-        background_image: game.background_image || '',
-        price: game.price || 0,
-        genres: game.genres || [],
-        released: game.released || '',
-        rating: game.rating || 0,
-        platforms: game.platforms || []
-      }, limitedQuantity);
+              id: game.id,
+              slug: game.slug || '',
+              name: game.name || '',
+              background_image: game.background_image || '',
+              price: game.price || 0,
+              genres: game.genres || [],
+              released: game.released || '',
+              rating: game.rating || 0,
+              platforms: game.platforms || [],
+              originalPrice: game.originalPrice || 0,
+              discountPercentage: game.discountPercentage || 0
+            }, limitedQuantity);
 
       setAddedToCart(true);
       showToast(`${limitedQuantity} ${limitedQuantity === 1 ? 'copia' : 'copias'} de ${game.name} añadidas al carrito`, 'success');
