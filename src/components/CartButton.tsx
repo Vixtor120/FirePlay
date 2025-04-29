@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { Game } from '@/types/game.types';
+import { useRouter } from 'next/navigation';
 
 interface CartButtonProps {
   game: Game;
@@ -10,11 +12,28 @@ interface CartButtonProps {
 
 export default function CartButton({ game }: CartButtonProps) {
   const { addToCart } = useCart();
+  const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [added, setAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
   const handleAddToCart = () => {
+    // Check if user is authenticated
+    if (!user) {
+      const toast = document.getElementById('toast');
+      if (toast) {
+        toast.textContent = 'Debes iniciar sesión para añadir juegos al carrito';
+        toast.className = 'visible fixed bottom-4 right-4 bg-indigo-600 text-white py-2 px-4 rounded shadow-lg z-50';
+        setTimeout(() => {
+          toast.className = 'hidden';
+        }, 3000);
+      }
+      
+      router.push(`/login?redirect=game/${game.slug}`);
+      return;
+    }
+
     setLoading(true);
     
     // Simulamos una pequeña demora para dar feedback visual
@@ -27,7 +46,7 @@ export default function CartButton({ game }: CartButtonProps) {
         const toast = document.getElementById('toast');
         if (toast) {
           toast.textContent = `${quantity} ${quantity === 1 ? 'copia' : 'copias'} de ${game.name} añadidas al carrito`;
-          toast.className = 'visible';
+          toast.className = 'visible fixed bottom-4 right-4 bg-green-600 text-white py-2 px-4 rounded shadow-lg z-50';
           setTimeout(() => {
             toast.className = 'hidden';
           }, 3000);

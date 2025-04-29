@@ -13,17 +13,17 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  
+
   // Detectar scroll para cambiar la apariencia del encabezado
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-  
+
   const handleLogout = async () => {
     await logout();
     router.push('/home');
@@ -55,6 +55,8 @@ export default function Header() {
             {[
               { name: 'Inicio', href: '/home' },
               { name: 'Explorar', href: '/search' },
+              { name: 'Información', href: '/info' },
+              { name: 'Contacto', href: '/contact' },
             ].map(item => (
               <Link 
                 key={item.name}
@@ -162,6 +164,8 @@ export default function Header() {
               {[
                 { name: 'Inicio', href: '/home' },
                 { name: 'Explorar', href: '/search' },
+                { name: 'Información', href: '/info' },
+                { name: 'Contacto', href: '/contact' },
                 { name: 'Favoritos', href: '/favorites' },
                 { name: 'Carrito', href: '/cart', badge: totalItems > 0 ? totalItems.toString() : null },
               ].map(item => (

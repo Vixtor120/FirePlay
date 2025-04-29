@@ -235,6 +235,12 @@ export default function GameCard({ game }: { game: Game }) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Check if user is authenticated first
+    if (!user) {
+      showToast('Debes iniciar sesión para añadir juegos al carrito');
+      return;
+    }
+
     // Actualización inmediata de UI
     setAddedToCart(true);
     
@@ -263,21 +269,9 @@ export default function GameCard({ game }: { game: Game }) {
     }
   };
 
-  // Calcular descuento de manera estable (no cambia en rerenderings)
-  const getDiscount = () => {
-    // Usamos el ID del juego para mantener consistencia
-    if (game.id % 3 === 0) {
-      const seed = game.id % 100; // Usar solo dos últimos dígitos como semilla
-      const discounts = [10, 15, 20, 25, 30, 50];
-      const discountIndex = seed % discounts.length;
-      const discount = discounts[discountIndex];
-      const originalPrice = parseFloat(((game.price || 0) / (1 - discount / 100)).toFixed(2));
-      return { discount, originalPrice };
-    }
-    return null;
-  };
+  // Replace the getDiscount function with this streamlined approach
+  const hasDiscount = game.originalPrice && game.discountPercentage;
 
-  const discount = getDiscount();
   const releaseYear = game.released ? new Date(game.released).getFullYear() : "N/A";
   
   // Limitar plataformas a mostrar máximo 3 (con verificación de nulidad)
@@ -311,9 +305,9 @@ export default function GameCard({ game }: { game: Game }) {
             </div>
             
             {/* Descuento si existe */}
-            {discount && (
+            {hasDiscount && (
               <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
-                -{discount.discount}%
+                -{game.discountPercentage}%
               </div>
             )}
             
@@ -371,18 +365,18 @@ export default function GameCard({ game }: { game: Game }) {
             
             <div className="flex items-end justify-between">
               <div>
-                {discount ? (
+                {hasDiscount ? (
                   <>
                     <span className="text-xs text-slate-400 line-through block">
-                      ${discount.originalPrice.toFixed(2)}
+                      €{game.originalPrice?.toFixed(2)}
                     </span>
                     <span className="text-lg font-bold text-violet-400">
-                      ${(game.price ?? 0).toFixed(2)}
+                      €{(game.price ?? 0).toFixed(2)}
                     </span>
                   </>
                 ) : (
                   <span className="text-lg font-bold text-violet-400">
-                    ${(game.price ?? 0).toFixed(2)}
+                    €{(game.price ?? 0).toFixed(2)}
                   </span>
                 )}
               </div>

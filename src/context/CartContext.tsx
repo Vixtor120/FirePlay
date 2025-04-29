@@ -1,242 +1,130 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { collection, doc, setDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/firebase/firebase';
 import { useAuth } from './AuthContext';
-import { Genre } from '@/types/game.types';
+import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { Game } from '@/types/game.types';
+import { useRouter } from 'next/navigation';
 
-interface CartItem {
-  id: number;
-  slug: string;
-  name: string;
-  background_image: string;
-  price: number;
-  genres: Genre[];
-  rating: number;
-  released: string;
-  platforms: {
-    platform: {
-      id: number;
-      name: string;
-    }
-  }[];
+type CartItem = Game & {
   quantity: number;
-}
+};
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (game: {
-    id: number;
-    slug: string;
-    name: string;
-    background_image: string;
-    price: number;
-    genres: Genre[];
-    released: string;
-    rating: number;
-    platforms: {
-      platform: {
-        id: number;
-        name: string;
-      }
-    }[];
-  }, quantity?: number) => void;
+  addToCart: (game: Game, quantity?: number) => void;
   removeFromCart: (gameId: number) => void;
   updateQuantity: (gameId: number, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
-  isCartLoading: boolean;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartContext = createContext<CartContextType>({
+  cartItems: [],
+  addToCart: () => {},
+  removeFromCart: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  totalItems: 0,
+  totalPrice: 0,
+});
 
-export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [syncInProgress, setSyncInProgress] = useState(false);
+  const router = useRouter();
 
-  const loadCartItems = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      if (user) {
-        const cartQuery = query(
-          collection(db, 'carts'),
-          where('userId', '==', user.uid)
-        );
-        const querySnapshot = await getDocs(cartQuery);
-        const items: CartItem[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          items.push({
-            id: data.gameId,
-            slug: data.gameSlug,
-            name: data.gameName,
-            background_image: data.gameImage,
-            price: data.gamePrice,
-            genres: data.genres,
-            rating: data.rating,
-            released: data.released,
-            platforms: data.platforms,
-            quantity: data.quantity
-          });
-        });
-        setCartItems(items);
-      } else {
-        const savedCart = localStorage.getItem('cart');
-        if (savedCart) {
-          setCartItems(JSON.parse(savedCart));
+  // Load cart from localStorage when component mounts and user changes
+  useEffect(() => {
+    if (user) {
+      const storedCart = localStorage.getItem(`cart_${user.uid}`);
+      if (storedCart) {
+        try {
+          setCartItems(JSON.parse(storedCart));
+        } catch (e) {
+          console.error('Error parsing cart data:', e);
+          setCartItems([]);
         }
       }
-    } catch (error) {
-      console.error('Error loading cart:', error);
-    } finally {
-      setIsLoading(false);
+    } else {
+      // Clear cart when user logs out
+      setCartItems([]);
     }
   }, [user]);
 
+  // Save cart to localStorage whenever it changes
   useEffect(() => {
-    loadCartItems();
-  }, [loadCartItems]);
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      localStorage.setItem('cart', JSON.stringify(cartItems));
+    if (user) {
+      localStorage.setItem(`cart_${user.uid}`, JSON.stringify(cartItems));
     }
-  }, [cartItems, isLoading, user]);
+  }, [cartItems, user]);
 
-  const syncCartWithFirestore = useCallback(async () => {
-    if (!user || syncInProgress) return;
-
-    setSyncInProgress(true);
-    try {
-      const cartQuery = query(
-        collection(db, 'carts'),
-        where('userId', '==', user.uid)
-      );
-      const querySnapshot = await getDocs(cartQuery);
-
-      const batchSize = 10;
-      const batches = Math.ceil(querySnapshot.size / batchSize);
-
-      for (let i = 0; i < batches; i++) {
-        const batch = querySnapshot.docs.slice(i * batchSize, (i + 1) * batchSize);
-        await Promise.all(batch.map((doc) => deleteDoc(doc.ref)));
-      }
-
-      for (let i = 0; i < cartItems.length; i += batchSize) {
-        const batch = cartItems.slice(i, i + batchSize);
-        await Promise.all(batch.map(item => 
-          setDoc(doc(db, 'carts', `${user.uid}_${item.id}`), {
-            userId: user.uid,
-            gameId: item.id,
-            gameSlug: item.slug,
-            gameName: item.name,
-            gameImage: item.background_image,
-            gamePrice: item.price,
-            genres: item.genres,
-            rating: item.rating,
-            released: item.released,
-            platforms: item.platforms,
-            quantity: item.quantity,
-            updatedAt: new Date().toISOString()
-          })
-        ));
-      }
-    } catch (error) {
-      console.error('Error syncing cart with Firestore:', error);
-    } finally {
-      setSyncInProgress(false);
+  const addToCart = (game: Game, quantity: number = 1) => {
+    // Require authentication to add to cart
+    if (!user) {
+      // This shouldn't be reachable if UI is properly guarded, but serves as a safeguard
+      router.push(`/login?redirect=game/${game.slug}`);
+      return;
     }
-  }, [cartItems, user, syncInProgress]);
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      const timer = setTimeout(() => {
-        syncCartWithFirestore();
-      }, 1000);
+    
+    setCartItems(prevItems => {
+      // Check if the item exists
+      const existingItemIndex = prevItems.findIndex(item => item.id === game.id);
       
-      return () => clearTimeout(timer);
-    }
-  }, [cartItems, isLoading, user, syncCartWithFirestore]);
-
-  const updateQuantity = useCallback((id: number, quantity: number) => {
-    const validQuantity = Math.max(1, Math.min(10, quantity));
-    
-    const newCartItems = cartItems.map(item => {
-      if (item.id === id) {
-        return { ...item, quantity: validQuantity };
+      if (existingItemIndex !== -1) {
+        // Item exists, update quantity
+        const updatedItems = [...prevItems];
+        const newQuantity = Math.min(updatedItems[existingItemIndex].quantity + quantity, 10);
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: newQuantity,
+        };
+        return updatedItems;
+      } else {
+        // Item does not exist, add new item
+        return [...prevItems, { ...game, quantity: Math.min(quantity, 10) }];
       }
-      return item;
     });
-    
-    setCartItems(newCartItems);
-    localStorage.setItem('cartItems', JSON.stringify(newCartItems));
-  }, [cartItems]);
-
-  const addToCart = (game: {
-    id: number;
-    slug: string;
-    name: string;
-    background_image: string;
-    price: number;
-    genres: Genre[];
-    released: string;
-    rating: number;
-    platforms: {
-      platform: {
-        id: number;
-        name: string;
-      }
-    }[];
-  }, quantity = 1) => {
-    const validQuantity = Math.max(1, Math.min(10, quantity));
-    
-    const existingItem = cartItems.find(item => item.id === game.id);
-
-    if (existingItem) {
-      const newQuantity = Math.min(10, existingItem.quantity + validQuantity);
-      updateQuantity(game.id, newQuantity);
-    } else {
-      const newCart = [...cartItems, { ...game, quantity: validQuantity }];
-      setCartItems(newCart);
-      localStorage.setItem('cartItems', JSON.stringify(newCart));
-    }
   };
 
-  const removeFromCart = useCallback((gameId: number) => {
-    setCartItems((prevItems) => prevItems.filter(item => item.id !== gameId));
-  }, []);
+  const removeFromCart = (gameId: number) => {
+    setCartItems(prevItems => prevItems.filter(item => item.id !== gameId));
+  };
 
-  const clearCart = useCallback(() => {
+  const updateQuantity = (gameId: number, quantity: number) => {
+    // Limit quantity to between 1 and 10
+    const limitedQuantity = Math.max(1, Math.min(10, quantity));
+    
+    setCartItems(prevItems =>
+      prevItems.map(item =>
+        item.id === gameId ? { ...item, quantity: limitedQuantity } : item
+      )
+    );
+  };
+
+  const clearCart = () => {
     setCartItems([]);
-  }, []);
+  };
 
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Calculate total items and price
+  const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ 
-      cartItems, 
-      addToCart, 
-      removeFromCart, 
-      updateQuantity, 
-      clearCart,
-      totalItems,
-      totalPrice,
-      isCartLoading: isLoading || syncInProgress
-    }}>
+    <CartContext.Provider
+      value={{
+        cartItems,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        totalItems,
+        totalPrice,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );
-}
-
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
 };
+
+export const useCart = () => useContext(CartContext);

@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useCart } from '@/context/CartContext';
 import { GameDetails } from '@/types/game.types';
 import FavoriteButton from '@/components/FavoriteButton';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Componente de carga para usar con Suspense
 function GameDetailsLoading() {
@@ -42,12 +44,14 @@ function GameDetailsLoading() {
 // Componente para mostrar los detalles del juego
 function GameDetailsContent({ game }: { game: GameDetails | null }) {
   const { addToCart, cartItems } = useCart();
+  const { user } = useAuth(); // Add this line to get user auth state
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const isMounted = useRef(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter(); // Add this line to access router
 
   // Verificar si el juego ya está en el carrito
   useEffect(() => {
@@ -73,6 +77,25 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
   }, []);
 
   const handleAddToCart = () => {
+    // Check if user is authenticated
+    if (!user) {
+      // Clear any existing toast first to ensure no lingering messages
+      const toast = document.getElementById('toast');
+      if (toast) {
+        toast.className = 'hidden';
+        
+        // Small delay to ensure the DOM updates before showing new toast
+        setTimeout(() => {
+          showToast('Debes iniciar sesión para añadir juegos al carrito', 'info');
+          router.push(`/login?redirect=game/${game?.slug}`);
+        }, 10);
+      } else {
+        // If toast element doesn't exist, just redirect
+        router.push(`/login?redirect=game/${game?.slug}`);
+      }
+      return; // Important: early return to prevent further execution
+    }
+
     // Verificar que game no sea null
     if (!game) {
       showToast('No se puede agregar al carrito: información del juego no disponible', 'error');
@@ -115,16 +138,24 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const toast = document.getElementById('toast');
     if (toast) {
-      toast.textContent = message;
-
-      let bgColor = 'bg-indigo-600';
-      if (type === 'error') bgColor = 'bg-red-600';
-      if (type === 'success') bgColor = 'bg-green-600';
-
-      toast.className = `visible fixed bottom-4 right-4 ${bgColor} text-white py-2 px-4 rounded shadow-lg z-50`;
+      // Clear any existing content and classes first
+      toast.className = 'hidden';
+      
+      // Small delay to ensure the previous class is removed before adding new classes
       setTimeout(() => {
-        toast.className = 'hidden';
-      }, 3000);
+        toast.textContent = message;
+
+        let bgColor = 'bg-indigo-600';
+        if (type === 'error') bgColor = 'bg-red-600';
+        if (type === 'success') bgColor = 'bg-green-600';
+        if (type === 'info') bgColor = 'bg-blue-600';
+
+        toast.className = `visible fixed bottom-4 right-4 ${bgColor} text-white py-2 px-4 rounded shadow-lg z-50`;
+        
+        setTimeout(() => {
+          if (toast) toast.className = 'hidden';
+        }, 3000);
+      }, 10);
     }
   };
 
@@ -330,8 +361,26 @@ function GameDetailsContent({ game }: { game: GameDetails | null }) {
         <div className="lg:col-span-1">
           <div className="bg-slate-800 p-6 rounded-xl sticky top-24 border border-slate-700 shadow-lg">
             <div className="flex justify-between items-center mb-6">
-              <div className="text-3xl font-bold text-white">
-                ${((game.price || 0) * quantity).toFixed(2)}
+              <div>
+                {game.originalPrice && game.discountPercentage ? (
+                  <div>
+                    <div className="text-xs text-slate-400 line-through">
+                      €{game.originalPrice.toFixed(2)}
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-3xl font-bold text-white">
+                        €{((game.price || 0) * quantity).toFixed(2)}
+                      </span>
+                      <span className="ml-2 bg-red-600 text-white text-xs px-2 py-1 rounded">
+                        -{game.discountPercentage}%
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-3xl font-bold text-white">
+                    €{((game.price || 0) * quantity).toFixed(2)}
+                  </div>
+                )}
               </div>
               {/* Indicador de Stock */}
               <span className="bg-green-900/30 text-green-400 text-xs px-2 py-1 rounded-full">
@@ -508,7 +557,7 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
   return (
     <>
       {loading ? <GameDetailsLoading /> : <GameDetailsContent game={game} />}
-      <div id="toast" className="hidden fixed bottom-4 right-4 bg-indigo-600 text-white py-2 px-4 rounded shadow-lg z-50"></div>
+      <div id="toast" className="hidden"></div>
     </>
   );
 }

@@ -159,7 +159,7 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between">
                 <span>Total:</span>
-                <span className="font-medium">${(totalPrice - discountAmount).toFixed(2)}</span>
+                <span className="font-medium">€{(totalPrice - discountAmount).toFixed(2)}</span>
               </div>
             </div>
           </div>

@@ -279,7 +279,7 @@ export default function FavoritesPage() {
                     </svg>
                     {favorite.gameRating.toFixed(1)}
                   </span>
-                  <span className="text-violet-400 font-medium">${favorite.gamePrice.toFixed(2)}</span>
+                  <span className="text-violet-400 font-medium">€{favorite.gamePrice.toFixed(2)}</span>
                 </div>
                 
                 <div className="mt-auto pt-3 flex justify-between border-t border-slate-700">
